@@ -1,0 +1,33 @@
+# Python Virtual Environment
+env/
+venv/
+.venv/
+ENV/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Node dependencies & builds
+node_modules/
+dist/
+build/
+.svelte-kit/
+.next/
+out/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
