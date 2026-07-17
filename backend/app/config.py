@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     
     # Security / JWT
     SECRET_KEY: str = "default_secret_key_change_me_in_production"
+    TURN_SECRET: str = "default_turn_static_auth_secret_key_change_me"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30

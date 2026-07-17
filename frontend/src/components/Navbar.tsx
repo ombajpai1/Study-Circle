@@ -41,6 +41,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           Friends Circle
         </div>
         <div 
+          className={`nav-link ${activeTab === 'rooms' ? 'active' : ''}`}
+          onClick={() => setActiveTab('rooms')}
+        >
+          Study Rooms
+        </div>
+        <div 
           className={`nav-link ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >

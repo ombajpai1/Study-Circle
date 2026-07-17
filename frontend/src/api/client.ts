@@ -65,6 +65,27 @@ export interface ChatMessage {
   is_read: boolean;
 }
 
+export interface StudyRoom {
+  id: string;
+  code: string;
+  host_id: string;
+  subject_id: string | null;
+  name: string;
+  max_participants: number;
+  focus_minutes: number;
+  break_minutes: number;
+  timer_state: 'idle' | 'focus' | 'break';
+  timer_started_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TurnCredentials {
+  username: string;
+  credential: string;
+  urls: string[];
+}
+
 export interface StatsSummary {
   today_minutes: number;
   current_streak: number;
@@ -217,5 +238,17 @@ export const api = {
   messages: {
     send: (recipientId: string, content: string) => request<ChatMessage>('/messages/', { method: 'POST', body: JSON.stringify({ recipient_id: recipientId, content }) }),
     list: (friendId: string) => request<ChatMessage[]>(`/messages/${friendId}`),
+  },
+  rooms: {
+    create: (body: { name: string; password?: string; subject_id?: string | null; focus_minutes?: number; break_minutes?: number; max_participants?: number }) => 
+      request<StudyRoom>('/rooms/', { method: 'POST', body: JSON.stringify(body) }),
+    join: (body: { code: string; password?: string }) => 
+      request<StudyRoom>('/rooms/join', { method: 'POST', body: JSON.stringify(body) }),
+    leave: (roomId: string) => 
+      request<{ ok: boolean }>(`/rooms/${roomId}/leave`, { method: 'DELETE' }),
+    active: () => 
+      request<StudyRoom[]>('/rooms/active'),
+    getTurnCredentials: () => 
+      request<TurnCredentials>('/turn-credentials'),
   }
 };

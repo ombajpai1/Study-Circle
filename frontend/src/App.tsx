@@ -10,6 +10,8 @@ import { StudyTimer } from './components/StudyTimer';
 import { FriendsPanel } from './components/FriendsPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ChatPanel } from './components/ChatPanel';
+import { RoomPanel } from './components/RoomPanel';
+import { RoomProvider } from './context/RoomContext';
 import { ToastContainer } from './components/ToastContainer';
 import { BookOpen, Key, Mail, User as UserIcon, Plus, Eye, EyeOff, Trash2, ShieldAlert, HelpCircle } from 'lucide-react';
 
@@ -837,6 +839,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'friends' && <FriendsPanel onNavigateToChat={() => setActiveTab('chat')} />}
         {activeTab === 'analytics' && <AnalyticsDashboard />}
         {activeTab === 'chat' && <ChatPanel />}
+        {activeTab === 'rooms' && <RoomPanel />}
       </main>
       <ToastContainer />
     </div>
@@ -846,7 +849,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <AppContent />
+      <RoomProvider>
+        <AppContent />
+      </RoomProvider>
     </AppProvider>
   );
 }

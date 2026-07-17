@@ -12,11 +12,12 @@ from app.models.friendship import Friendship
 from app.models.cheers import Cheers
 from app.models.notification import Notification
 from app.models.message import Message
+from app.models.room import StudyRoom, RoomParticipant
 
 from sqlalchemy import text
 from app.database import engine
 
-from app.routers import auth, sessions, subjects, friends, websocket, users, stats, cheers, messages
+from app.routers import auth, sessions, subjects, friends, websocket, users, stats, cheers, messages, rooms, turn
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -58,6 +59,8 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(cheers.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
+app.include_router(rooms.router, prefix="/api/v1")
+app.include_router(turn.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

@@ -5,6 +5,49 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      window.addEventListener('error', function(event) {
+        var errorBox = document.createElement('div');
+        errorBox.style.position = 'fixed';
+        errorBox.style.top = '0';
+        errorBox.style.left = '0';
+        errorBox.style.width = '100%';
+        errorBox.style.height = '100%';
+        errorBox.style.backgroundColor = '#1e293b';
+        errorBox.style.color = '#f87171';
+        errorBox.style.padding = '24px';
+        errorBox.style.fontFamily = 'monospace';
+        errorBox.style.fontSize = '14px';
+        errorBox.style.zIndex = '999999';
+        errorBox.style.overflowY = 'auto';
+        errorBox.innerHTML = '<h2 style="color: #ef4444; margin-bottom: 12px;">Uncaught Startup Error</h2>' +
+          '<p><strong>Message:</strong> ' + event.message + '</p>' +
+          '<p><strong>Source:</strong> ' + event.filename + ':' + event.lineno + ':' + event.colno + '</p>' +
+          '<p><strong>Stack Trace:</strong></p>' +
+          '<pre style="background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #ef4444;">' + (event.error ? event.error.stack : 'No stack trace available') + '</pre>';
+        document.body.appendChild(errorBox);
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        var errorBox = document.createElement('div');
+        errorBox.style.position = 'fixed';
+        errorBox.style.top = '0';
+        errorBox.style.left = '0';
+        errorBox.style.width = '100%';
+        errorBox.style.height = '100%';
+        errorBox.style.backgroundColor = '#1e293b';
+        errorBox.style.color = '#f87171';
+        errorBox.style.padding = '24px';
+        errorBox.style.fontFamily = 'monospace';
+        errorBox.style.fontSize = '14px';
+        errorBox.style.zIndex = '999999';
+        errorBox.style.overflowY = 'auto';
+        errorBox.innerHTML = '<h2 style="color: #ef4444; margin-bottom: 12px;">Unhandled Promise Rejection</h2>' +
+          '<p><strong>Reason:</strong> ' + event.reason + '</p>' +
+          '<p><strong>Stack Trace:</strong></p>' +
+          '<pre style="background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #ef4444;">' + (event.reason && event.reason.stack ? event.reason.stack : 'No stack trace available') + '</pre>';
+        document.body.appendChild(errorBox);
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
