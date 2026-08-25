@@ -12,6 +12,8 @@ export type TimerState = 'IDLE' | 'RUNNING' | 'PAUSED' | 'BREAK';
 
 
 interface AppContextType {
+  themeAccent: 'teal' | 'violet' | 'amber' | 'rose' | 'blue';
+  setThemeAccent: (accent: 'teal' | 'violet' | 'amber' | 'rose' | 'blue') => void;
   user: User | null;
   setUser: (user: User | null) => void;
   isLoading: boolean;
@@ -79,6 +81,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('study_circle_theme');
     return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+
+  const [themeAccent, setThemeAccentState] = useState<'teal' | 'violet' | 'amber' | 'rose' | 'blue'>(() => {
+    const saved = localStorage.getItem('study_circle_theme_accent');
+    return (saved as any) || 'teal';
+  });
+
+  const setThemeAccent = (accent: 'teal' | 'violet' | 'amber' | 'rose' | 'blue') => {
+    setThemeAccentState(accent);
+    localStorage.setItem('study_circle_theme_accent', accent);
+  };
+
+  useEffect(() => {
+    document.body.className = `theme-${themeAccent}`;
+  }, [themeAccent]);
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [feed, setFeed] = useState<FriendSession[]>([]);
@@ -266,6 +282,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           started_at: sessionStartedAt ? sessionStartedAt.toISOString() : new Date().toISOString(),
           note: 'Completed focusing blocks!'
         });
+
+        // Sync to local storage for clock logs
+        try {
+          const localSaved = localStorage.getItem('study_circle_local_sessions');
+          const localList = localSaved ? JSON.parse(localSaved) : [];
+          const localUpdated = [{
+            id: Date.now().toString(),
+            subject: { name: activeSub ? activeSub.name : 'Focus block' },
+            duration_seconds: duration,
+            created_at: new Date().toISOString()
+          }, ...localList];
+          localStorage.setItem('study_circle_local_sessions', JSON.stringify(localUpdated.slice(0, 10)));
+        } catch (err) {}
 
         addToast('🔥 Incredible! Focus block completed successfully! +1 Streak Day.', 'success');
         
@@ -647,6 +676,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         hasConnectionError,
         retryConnection,
+        themeAccent,
+        setThemeAccent,
 
         // Persistent Timer State & Actions
         timerState,

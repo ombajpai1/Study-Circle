@@ -2,21 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
 import type { User } from '../api/client';
-import { UserPlus, UserCheck, Users, Search, Clock, ShieldAlert, MessageSquare } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 interface FriendsPanelProps {
   onNavigateToChat: () => void;
 }
 
 export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateToChat }) => {
-  const { friends, addFriend, acceptFriend, setSelectedChatUserId } = useApp();
+  const { friends, addFriend, acceptFriend, setSelectedChatUserId, feed, cheerSession } = useApp();
   const [searchUsername, setSearchUsername] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Debounced search for matching user suggestions
+  // Debounced search
   useEffect(() => {
     if (!searchUsername.trim()) {
       setSuggestions([]);
@@ -38,310 +36,209 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onNavigateToChat }) 
     e.preventDefault();
     if (!searchUsername.trim()) return;
 
-    setIsSubmitting(true);
-    const success = await addFriend(searchUsername.trim());
-    setIsSubmitting(false);
-    if (success) {
-      setSearchUsername('');
-      setShowSuggestions(false);
-    }
+    await addFriend(searchUsername.trim());
+    setSearchUsername('');
+    setShowSuggestions(false);
+  };
+
+  const getAvatarColors = (name: string) => {
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      { bg: '#2d4a2e', text: '#4ade80' },
+      { bg: '#2a3a50', text: '#60a5fa' },
+      { bg: '#3a2a40', text: '#c084fc' },
+      { bg: '#3a2a30', text: '#f9a8d4' },
+      { bg: '#4a3e2a', text: '#facc15' }
+    ];
+    return colors[hash % colors.length];
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const past = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - past.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHrs = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHrs / 24);
+
+    if (diffMins < 1) return 'now';
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHrs < 24) return `${diffHrs}h`;
+    return `${diffDays}d`;
   };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
   };
 
-  // Filter friends list
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
+  const onlineFriends = acceptedFriends.filter(f => f.is_online);
   const incomingRequests = friends.filter(f => f.status === 'pending_incoming');
   const outgoingRequests = friends.filter(f => f.status === 'pending_outgoing');
 
   return (
-    <div className="bento-grid" style={{ width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '480px', margin: '0 auto' }}>
       
-      {/* Left Pane: Accepted Connections */}
-      <div className="bento-card col-6" style={{ gridColumn: 'span 6', minHeight: '450px' }}>
-        <h3 style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Users size={20} color="var(--accent)" />
-          <span>Study Friends ({acceptedFriends.length})</span>
-        </h3>
+      {/* Search & Invite Bar */}
+      <form onSubmit={handleSearchSubmit} className="search-bar" style={{ display: 'flex', position: 'relative' }}>
+        <Search size={13} style={{ color: 'rgba(255,255,255,0.2)', marginRight: '4px' }} />
+        <input
+          type="text"
+          placeholder="Search friends…"
+          value={searchUsername}
+          onChange={(e) => setSearchUsername(e.target.value)}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          style={{ border: 'none', background: 'transparent', flex: 1, color: 'var(--text-primary)', outline: 'none', fontSize: '12px' }}
+        />
+        <span 
+          onClick={handleSearchSubmit}
+          style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontWeight: 500 }}
+        >
+          Add friend
+        </span>
 
-        {acceptedFriends.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '280px', color: 'var(--text-secondary)' }}>
-            <p>Your Study Circle is empty.</p>
-            <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Use the directory search on the right to add connections!</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', maxHeight: '350px' }}>
-            {acceptedFriends.map(friend => (
+        {showSuggestions && suggestions.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            backgroundColor: 'var(--surface-2)',
+            border: '0.5px solid var(--border)',
+            borderRadius: '8px',
+            marginTop: '4px',
+            maxHeight: '180px',
+            overflowY: 'auto'
+          }}>
+            {suggestions.map(user => (
               <div 
-                key={friend.id} 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--border-radius-md)',
-                  backgroundColor: 'var(--bg-primary)'
+                key={user.id}
+                onMouseDown={() => {
+                  setSearchUsername(user.username);
+                  setShowSuggestions(false);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  borderBottom: '0.5px solid var(--border)'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  {/* Initials Avatar */}
-                  <div 
-                    style={{ 
-                      width: '38px', 
-                      height: '38px', 
-                      borderRadius: '50%', 
-                      backgroundColor: friend.avatar_color || 'var(--accent)', 
-                      color: 'white', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      fontWeight: 600,
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    {getInitials(friend.display_name || friend.username)}
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{friend.display_name || friend.username}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{friend.username}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  {/* Presence Status */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span 
-                      style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        borderRadius: '50%', 
-                        backgroundColor: friend.is_online ? 'var(--success)' : 'var(--text-secondary)' 
-                      }} 
-                      className={friend.is_online ? 'timer-pulse' : ''}
-                    />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                      {friend.is_online ? 'online' : 'offline'}
-                    </span>
-                  </div>
-
-                  {/* Chat Action Button */}
-                  <button
-                    onClick={() => {
-                      setSelectedChatUserId(friend.id);
-                      onNavigateToChat();
-                    }}
-                    className="btn btn-secondary"
-                    style={{ 
-                      padding: '0.35rem 0.65rem', 
-                      borderRadius: 'var(--border-radius-sm)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      fontSize: '0.75rem'
-                    }}
-                    title="Send Message"
-                  >
-                    <MessageSquare size={12} />
-                    <span>Chat</span>
-                  </button>
-                </div>
+                <span style={{ fontWeight: 500 }}>{user.display_name || user.username}</span>
+                <span style={{ color: 'var(--text-secondary)', marginLeft: '4px' }}>@{user.username}</span>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </form>
 
-      {/* Right Pane: Search & Invitations */}
-      <div className="bento-card col-6" style={{ gridColumn: 'span 6', minHeight: '450px' }}>
+      {/* Online now section */}
+      <div>
+        <div className="section-head">Online now · {onlineFriends.length}</div>
         
-        {/* Global User Directory Search */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Search size={20} color="var(--accent)" />
-            <span>Find Users Directory</span>
-          </h3>
-
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.5rem' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <input
-                type="text"
-                placeholder="Search username e.g. alex_codes"
-                value={searchUsername}
-                onChange={(e) => setSearchUsername(e.target.value)}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setShowSuggestions(false)}
-                style={{ 
-                  width: '100%', 
-                  padding: '0.65rem 0.75rem 0.65rem 2.25rem', 
-                  borderRadius: 'var(--border-radius-md)', 
-                  border: '1px solid var(--border)',
-                  backgroundColor: 'var(--bg-primary)',
-                  outline: 'none',
-                  fontSize: '0.9rem'
-                }}
-              />
-              <Search size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
-
-              {/* Suggestions Dropdown Overlay */}
-              {showSuggestions && suggestions.length > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 50,
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--border-radius-md)',
-                  boxShadow: 'var(--shadow)',
-                  marginTop: '0.25rem',
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.25rem',
-                  padding: '0.5rem'
-                }}>
-                  {suggestions.map(user => (
-                    <div 
-                      key={user.id}
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // Prevents input from losing focus immediately
-                        setSearchUsername(user.username);
-                        setShowSuggestions(false);
-                      }}
-                      onMouseEnter={() => setHoveredId(user.id)}
-                      onMouseLeave={() => setHoveredId(null)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: 'var(--border-radius-sm)',
-                        cursor: 'pointer',
-                        backgroundColor: hoveredId === user.id ? 'var(--bg-primary)' : 'transparent',
-                        transition: 'background-color 0.2s',
-                      }}
-                    >
-                      {/* Avatar */}
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        backgroundColor: user.avatar_color || 'var(--accent)',
-                        color: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.75rem',
-                        fontWeight: 600
-                      }}>
-                        {getInitials(user.display_name || user.username)}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {user.display_name || user.username}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                          @{user.username}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button 
-              type="submit" 
-              className="btn btn-primary" 
-              style={{ padding: '0.65rem 1.25rem', borderRadius: 'var(--border-radius-md)' }}
-              disabled={isSubmitting || !searchUsername.trim()}
+        {onlineFriends.map(friend => {
+          const colors = getAvatarColors(friend.display_name || friend.username);
+          return (
+            <div 
+              key={friend.id} 
+              className="friend-row"
+              onClick={() => {
+                setSelectedChatUserId(friend.id);
+                onNavigateToChat();
+              }}
+              style={{ cursor: 'pointer' }}
             >
-              <UserPlus size={16} />
-              <span>Invite</span>
-            </button>
-          </form>
-        </div>
-
-        {/* Pending Incoming Invitations */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <h4 style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Clock size={14} />
-            <span>Pending Requests ({incomingRequests.length})</span>
-          </h4>
-
-          {incomingRequests.length === 0 ? (
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No incoming invitations.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {incomingRequests.map(req => (
-                <div 
-                  key={req.id} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    padding: '0.5rem 0.75rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--border-radius-md)',
-                    backgroundColor: 'var(--bg-primary)'
-                  }}
-                >
-                  <div style={{ fontSize: '0.85rem' }}>
-                    <span style={{ fontWeight: 600 }}>{req.display_name || req.username}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}> (@{req.username})</span>
-                  </div>
-
-                  <button 
-                    onClick={() => acceptFriend(req.id)}
-                    className="btn btn-primary"
-                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderRadius: '4px' }}
-                  >
-                    <UserCheck size={12} />
-                    <span>Accept</span>
-                  </button>
-                </div>
-              ))}
+              <div className="fav" style={{ backgroundColor: colors.bg, color: colors.text }}>
+                {getInitials(friend.display_name || friend.username)}
+              </div>
+              <div className="fonline" />
+              <div>
+                <div className="fname">{friend.display_name || friend.username}</div>
+                <div className="factivity">CS · active studying</div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="ftime">now</span>
+              </div>
             </div>
-          )}
-        </div>
+          );
+        })}
 
-        {/* Pending Outgoing Invitations */}
-        <div>
-          <h4 style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <ShieldAlert size={14} />
-            <span>Sent Invitations ({outgoingRequests.length})</span>
-          </h4>
-
-          {outgoingRequests.length === 0 ? (
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No sent invitations pending.</p>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {outgoingRequests.map(req => (
-                <span 
-                  key={req.id} 
-                  style={{ 
-                    fontSize: '0.75rem', 
-                    padding: '0.25rem 0.6rem', 
-                    borderRadius: '20px', 
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-secondary)',
-                    fontWeight: 500
-                  }}
-                >
-                  @{req.username} (pending)
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
+        {onlineFriends.length === 0 && (
+          <p style={{ fontStyle: 'italic', fontSize: '11px', color: 'var(--text-secondary)', padding: '6px 0' }}>No friends online right now.</p>
+        )}
       </div>
+
+      {/* Recent Activity feed section */}
+      <div>
+        <div className="section-head">Recent</div>
+        
+        {feed.slice(0, 5).map(item => {
+          const colors = getAvatarColors(item.display_name || item.username);
+          const isCheered = item.cheered_by_me || item.cheer_count > 0;
+          return (
+            <div 
+              key={item.id}
+              className="friend-row"
+            >
+              <div className="fav" style={{ backgroundColor: colors.bg, color: colors.text }}>
+                {getInitials(item.display_name || item.username)}
+              </div>
+              <div className="foffline" />
+              <div>
+                <div className="fname">{item.display_name || item.username}</div>
+                <div className="factivity">
+                  {item.subject_emoji} {item.subject_name} · {Math.round(item.duration_seconds / 60)}m logged
+                </div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="ftime">{formatTimeAgo(item.ended_at)}</span>
+                <span 
+                  className="fstar"
+                  onClick={() => !item.cheered_by_me && cheerSession(item.id)}
+                  style={{ color: isCheered ? '#f5a623' : 'rgba(255,255,255,0.15)' }}
+                >
+                  ★
+                </span>
+                {item.cheer_count > 0 && <span style={{ fontSize: '10px', color: '#f5a623' }}>{item.cheer_count}</span>}
+              </div>
+            </div>
+          );
+        })}
+
+        {feed.length === 0 && (
+          <p style={{ fontStyle: 'italic', fontSize: '11px', color: 'var(--text-secondary)', padding: '6px 0' }}>No recent activities logged.</p>
+        )}
+      </div>
+
+      {/* Pending invitations */}
+      {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+        <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: '14px', marginTop: '8px' }}>
+          <div className="section-head">Pending invitations</div>
+          
+          {incomingRequests.map(req => (
+            <div key={req.id} className="friend-row">
+              <div className="fname" style={{ flex: 1 }}>{req.display_name || req.username}</div>
+              <button 
+                onClick={() => acceptFriend(req.id)}
+                className="btn btn-primary"
+                style={{ height: '24px', fontSize: '11px', padding: '0 8px' }}
+              >
+                Accept
+              </button>
+            </div>
+          ))}
+
+          {outgoingRequests.map(req => (
+            <div key={req.id} className="friend-row">
+              <div className="fname" style={{ color: 'var(--text-secondary)' }}>@{req.username}</div>
+              <span className="ftime" style={{ marginLeft: 'auto' }}>Sent</span>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 };

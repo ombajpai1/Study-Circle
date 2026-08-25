@@ -20,23 +20,11 @@ function VideoTile({ stream, label, avatarColor, muted = false, activeReaction, 
   }, [stream]);
 
   const hasVideoTrack = stream && stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
+  const initials = label.substring(0, 2).toUpperCase();
 
   return (
-    <div className="video-tile" style={{
-      position: 'relative',
-      borderRadius: '16px',
-      overflow: 'hidden',
-      backgroundColor: 'rgba(30, 41, 59, 0.7)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
-      backdropFilter: 'blur(12px)',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-      aspectRatio: '4/3',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      transition: 'all 0.3s ease'
-    }}>
-      {/* Video Stream */}
+    <div className={`video-tile ${isLocal ? 'video-active' : ''}`}>
+      {/* Video stream rendering */}
       {stream && hasVideoTrack ? (
         <video
           ref={videoRef}
@@ -47,68 +35,40 @@ function VideoTile({ stream, label, avatarColor, muted = false, activeReaction, 
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            transform: isLocal ? 'scaleX(-1)' : 'none', // Mirror local video for natural experience
-            borderRadius: '16px'
+            transform: isLocal ? 'scaleX(-1)' : 'none',
+            position: 'absolute',
+            inset: 0
           }}
         />
       ) : (
-        /* Fallback Avatar Badge */
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            backgroundColor: avatarColor,
-            color: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-            textTransform: 'uppercase'
-          }}>
-            {(label || '').slice(0, 2)}
-          </div>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            {!stream ? 'Connecting...' : 'Camera Off'}
-          </span>
+        /* Fallback initials badge */
+        <div 
+          className="video-av" 
+          style={{ 
+            backgroundColor: avatarColor || 'var(--accent-bg)', 
+            color: 'var(--text-primary)',
+            fontSize: '13px',
+            fontWeight: 500
+          }}
+        >
+          {initials}
         </div>
       )}
 
-      {/* Floating Name Label */}
-      <div style={{
-        position: 'absolute',
-        bottom: '12px',
-        left: '12px',
-        backgroundColor: 'rgba(15, 23, 42, 0.75)',
-        backdropFilter: 'blur(4px)',
-        padding: '4px 12px',
-        borderRadius: '20px',
-        fontSize: '0.8rem',
-        fontWeight: '500',
-        color: '#FFFFFF',
-        border: '1px solid rgba(255, 255, 255, 0.05)',
-        pointerEvents: 'none'
-      }}>
+      {/* Floating Name overlay */}
+      <div className="video-name" style={{ marginTop: stream && hasVideoTrack ? 'auto' : '0', zIndex: 5 }}>
         {label} {isLocal && '(You)'}
       </div>
 
-      {/* Pop-up Reaction Emoji overlay */}
+      {/* Reaction popup */}
       {activeReaction && (
-        <div className="reaction-bubble" style={{
+        <div style={{
           position: 'absolute',
           top: '50%',
           left: '50%',
-          transform: 'translate(-50%, -50%) scale(1)',
-          fontSize: '4.5rem',
+          transform: 'translate(-50%, -50%)',
+          fontSize: '3rem',
           pointerEvents: 'none',
-          animation: 'bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
           zIndex: 10
         }}>
           {activeReaction}
@@ -119,39 +79,19 @@ function VideoTile({ stream, label, avatarColor, muted = false, activeReaction, 
 }
 
 export function VideoGrid() {
-  const { peers, localStream, activeReactions, roomInfo } = useRoom();
+  const { peers, localStream, activeReactions } = useRoom();
 
   const activePeers = Object.values(peers);
-  const totalTiles = activePeers.length + 1;
-
-  // Determine grid columns dynamically for beautiful layouts
-  let gridTemplateColumns = '1fr';
-  if (totalTiles >= 5) {
-    gridTemplateColumns = 'repeat(3, 1fr)';
-  } else if (totalTiles >= 2) {
-    gridTemplateColumns = 'repeat(2, 1fr)';
-  }
-
-  // Create a helper for user initials / color fallback
-  const hostColor = '#8B5CF6';
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: gridTemplateColumns,
-      gap: '16px',
-      width: '100%',
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '8px'
-    }}>
+    <div className="video-grid">
       {/* Local Participant Tile */}
       <VideoTile
         stream={localStream}
         label="You"
-        avatarColor={hostColor}
+        avatarColor="var(--accent-bg)"
         muted={true}
-        activeReaction={activeReactions[roomInfo?.host_id || ''] || activeReactions['']}
+        activeReaction={activeReactions['']}
         isLocal={true}
       />
 
@@ -166,6 +106,14 @@ export function VideoGrid() {
           activeReaction={activeReactions[p.userId]}
         />
       ))}
+      
+      {/* Invite Tile */}
+      <div className="video-tile" style={{ borderStyle: 'dashed', opacity: 0.4 }}>
+        <div className="video-av" style={{ background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text-secondary)' }}>
+          +
+        </div>
+        <div className="video-name">Invite</div>
+      </div>
     </div>
   );
 }

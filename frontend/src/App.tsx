@@ -2,18 +2,15 @@ import React, { useState } from 'react';
 import { useApp, AppProvider } from './context/AppContext';
 import { api, setAccessToken } from './api/client';
 import { Navbar } from './components/Navbar';
-import { StatsGrid } from './components/StatsGrid';
-import { GoalProgress } from './components/GoalProgress';
-import { ActivityFeed } from './components/ActivityFeed';
-import { FriendsSidebar } from './components/FriendsSidebar';
 import { StudyTimer } from './components/StudyTimer';
 import { FriendsPanel } from './components/FriendsPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ChatPanel } from './components/ChatPanel';
-import { RoomPanel } from './components/RoomPanel';
 import { RoomProvider } from './context/RoomContext';
+import { GoalList } from './components/GoalList';
 import { ToastContainer } from './components/ToastContainer';
-import { BookOpen, Key, Mail, User as UserIcon, Plus, Eye, EyeOff, Trash2, ShieldAlert, HelpCircle } from 'lucide-react';
+import { ProfilePanel } from './components/ProfilePanel';
+import { Key, Mail, ShieldAlert, BookOpen, User as UserIcon, Eye, EyeOff, HelpCircle } from 'lucide-react';
 
 const AuthGate: React.FC = () => {
   const { setUser, addToast } = useApp();
@@ -606,173 +603,9 @@ const AuthGate: React.FC = () => {
   );
 };
 
-interface DashboardViewProps {
-  onNavigateToAnalytics: () => void;
-}
-
-const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToAnalytics }) => {
-  const { addSubject, deleteSubject, subjects } = useApp();
-  const [subName, setSubName] = useState('');
-  const [subEmoji, setSubEmoji] = useState('📖');
-  const [subColor, setSubColor] = useState('#3B82F6');
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleCreateSubject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subName.trim()) return;
-
-    const success = await addSubject(subName.trim(), subEmoji, subColor);
-    if (success) {
-      setSubName('');
-      setIsOpen(false);
-    }
-  };
-
-  const emojiOptions = ['📖', '💻', '📐', '🧪', '🎨', '⚙️', '📈', '⚛️', '🧠', '💼'];
-  const colorOptions = ['#3B82F6', '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6'];
-
-  return (
-    <div className="bento-grid">
-      <StatsGrid onNavigateToAnalytics={onNavigateToAnalytics} />
-      <GoalProgress />
-      
-      {/* Split section */}
-      <div className="col-8" style={{ gridColumn: 'span 8', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        {/* Subject Creator Card widget */}
-        <div className="bento-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontWeight: 600, fontSize: '1.1rem' }}>My Study Subjects</h3>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => setIsOpen(!isOpen)}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-            >
-              <Plus size={14} />
-              <span>{isOpen ? 'Close' : 'Add Subject'}</span>
-            </button>
-          </div>
-
-          {/* Active Subjects Pills with Delete actions */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-            {subjects.length === 0 ? (
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No subjects added yet. Create one to categorize your study timers.</span>
-            ) : (
-              subjects.map(s => (
-                <div key={s.id} style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.35rem 0.75rem',
-                  borderRadius: '20px',
-                  backgroundColor: 'var(--bg-primary)',
-                  border: `1px solid ${s.color_hex}`,
-                  fontSize: '0.85rem',
-                  fontWeight: 500
-                }}>
-                  <span>{s.emoji}</span>
-                  <span style={{ color: 'var(--text-primary)' }}>{s.name}</span>
-                  <button
-                    onClick={() => deleteSubject(s.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--error)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '0 0 0 0.25rem',
-                      outline: 'none'
-                    }}
-                    title="Delete Subject"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {isOpen && (
-            <form onSubmit={handleCreateSubject} style={{ marginTop: '1.25rem', padding: '1rem', backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border)' }}>
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <input
-                  type="text"
-                  placeholder=" "
-                  className="form-control"
-                  value={subName}
-                  onChange={(e) => setSubName(e.target.value)}
-                  maxLength={50}
-                  required
-                />
-                <label className="form-label">Subject Name</label>
-              </div>
-
-              {/* Emoji selector pills */}
-              <div style={{ marginBottom: '1rem' }}>
-                <span className="stat-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Select Emoji</span>
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  {emojiOptions.map(emoji => (
-                    <button
-                      type="button"
-                      key={emoji}
-                      onClick={() => setSubEmoji(emoji)}
-                      style={{ 
-                        fontSize: '1.25rem', 
-                        padding: '0.25rem 0.5rem', 
-                        borderRadius: '6px',
-                        border: subEmoji === emoji ? '2px solid var(--accent)' : '1px solid var(--border)',
-                        backgroundColor: subEmoji === emoji ? 'var(--bg-card)' : 'transparent',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Color selector pills */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <span className="stat-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Select Color Accent</span>
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  {colorOptions.map(color => (
-                    <button
-                      type="button"
-                      key={color}
-                      onClick={() => setSubColor(color)}
-                      style={{ 
-                        width: '24px', 
-                        height: '24px', 
-                        borderRadius: '50%',
-                        backgroundColor: color,
-                        border: subColor === color ? '2px solid var(--text-primary)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        boxShadow: 'var(--shadow)'
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
-                Create Subject
-              </button>
-            </form>
-          )}
-        </div>
-
-        <ActivityFeed />
-      </div>
-
-      <FriendsSidebar />
-    </div>
-  );
-};
-
 const AppContent: React.FC = () => {
   const { user, isLoading, hasConnectionError, retryConnection } = useApp();
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('timer');
   const [retrying, setRetrying] = useState<boolean>(false);
 
   const handleRetry = async () => {
@@ -828,19 +661,57 @@ const AppContent: React.FC = () => {
     return <AuthGate />;
   }
 
+  const getTabTitle = () => {
+    switch (activeTab) {
+      case 'timer': return 'Focus timer';
+      case 'friends': return 'Friends';
+      case 'chat': return 'Messages';
+      case 'analytics': return 'Progress';
+      case 'goals': return 'Goals';
+      case 'profile': return 'Profile';
+      default: return 'Study Circle';
+    }
+  };
+
+  const getTabSubtitle = () => {
+    switch (activeTab) {
+      case 'timer': return '25 min session';
+      case 'friends': return '4 online now';
+      case 'chat': return 'Direct Messages';
+      case 'analytics': return 'This week';
+      case 'goals': return 'Active objectives';
+      case 'profile': return 'Your profile';
+      default: return '';
+    }
+  };
+
   return (
     <div className="app-container">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="main-content">
-        {activeTab === 'dashboard' && (
-          <DashboardView onNavigateToAnalytics={() => setActiveTab('analytics')} />
-        )}
-        {activeTab === 'timer' && <StudyTimer />}
-        {activeTab === 'friends' && <FriendsPanel onNavigateToChat={() => setActiveTab('chat')} />}
-        {activeTab === 'analytics' && <AnalyticsDashboard />}
-        {activeTab === 'chat' && <ChatPanel />}
-        {activeTab === 'rooms' && <RoomPanel />}
-      </main>
+      <div className="content">
+        <header className="topbar">
+          <span className="tb-title">{getTabTitle()}</span>
+          <span className="tb-sub">{getTabSubtitle()}</span>
+          <div className="tb-right">
+            {user && (
+              <>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,.25)', fontWeight: 500 }}>🔥 {user.current_streak}</span>
+                <div className="av" style={{ backgroundColor: 'var(--accent-bg)', color: 'var(--accent)', fontWeight: 500 }}>
+                  {(user.display_name || user.username).substring(0, 2).toUpperCase()}
+                </div>
+              </>
+            )}
+          </div>
+        </header>
+        <main className="main">
+          {activeTab === 'timer' && <StudyTimer />}
+          {activeTab === 'friends' && <FriendsPanel onNavigateToChat={() => setActiveTab('chat')} />}
+          {activeTab === 'chat' && <ChatPanel />}
+          {activeTab === 'analytics' && <AnalyticsDashboard />}
+          {activeTab === 'goals' && <GoalList />}
+          {activeTab === 'profile' && <ProfilePanel />}
+        </main>
+      </div>
       <ToastContainer />
     </div>
   );

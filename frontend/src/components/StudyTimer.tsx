@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { RoomPanel } from './RoomPanel';
 import type { Subject } from '../api/client';
-import { FriendsSidebar } from './FriendsSidebar';
-import { Play, Pause, RotateCcw, SkipForward, AlertCircle } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
 export const StudyTimer: React.FC = () => {
   const {
@@ -12,228 +12,303 @@ export const StudyTimer: React.FC = () => {
     setSelectedSubjectId,
     focusDuration,
     setFocusDuration,
-    customMinutes,
-    setCustomMinutes,
     timeLeft,
     currentPhase,
     startTimer,
     pauseTimer,
     resetTimer,
-    skipTimer
+    addSubject
   } = useApp();
+
+  const [timerMode, setTimerMode] = useState<'solo' | 'group'>('solo');
+  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+
+  // Subject Creation States
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [newSubjectEmoji, setNewSubjectEmoji] = useState('📚');
+  const [newSubjectColor] = useState('#2383E2');
+
+  const handleSaveSubject = async () => {
+    if (!newSubjectName.trim()) return;
+    const success = await addSubject(newSubjectName.trim(), newSubjectEmoji || '📚', newSubjectColor);
+    if (success) {
+      setNewSubjectName('');
+      setNewSubjectEmoji('📚');
+      setIsAddingSubject(false);
+    }
+  };
+
+  const fetchRecentSessions = () => {
+    try {
+      const saved = localStorage.getItem('study_circle_local_sessions');
+      if (saved) {
+        setRecentSessions(JSON.parse(saved).slice(0, 3));
+      } else {
+        setRecentSessions([]);
+      }
+    } catch (e) {
+      console.error('Failed to load local sessions', e);
+    }
+  };
+
+  useEffect(() => {
+    if (timerMode === 'solo') {
+      fetchRecentSessions();
+    }
+  }, [timerMode, timerState]);
 
   const getSelectedSubject = (): Subject | null => {
     return subjects.find(s => s.id === selectedSubjectId) || null;
   };
 
-  // UI Formatters
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleDurationPill = (mins: number) => {
-    if (timerState === 'IDLE') {
-      setFocusDuration(mins);
-      setCustomMinutes('');
-    }
-  };
+  // SVG Progress calculation
+  const totalDuration = currentPhase === 'focus' ? focusDuration * 60 : 5 * 60;
+  const radius = 58;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - timeLeft / totalDuration);
 
-  const handleCustomMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (timerState !== 'IDLE') return;
-
-    setCustomMinutes(val);
-    const mins = parseInt(val, 10);
-    if (!isNaN(mins) && mins > 0) {
-      setFocusDuration(mins);
-    }
-  };
-
-  const getPhaseBadgeColor = () => {
-    if (timerState === 'IDLE') return 'var(--text-secondary)';
-    if (timerState === 'PAUSED') return 'var(--text-secondary)';
-    if (currentPhase === 'break') return 'var(--warning)';
-    return 'var(--accent)';
-  };
+  if (timerMode === 'group') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Sub-header navigation toggles */}
+        <div style={{ display: 'flex', gap: '16px', borderBottom: '0.5px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
+          <span 
+            onClick={() => setTimerMode('solo')}
+            style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}
+          >
+            Solo Focus
+          </span>
+          <span 
+            style={{ fontSize: '12px', fontWeight: 500, color: 'var(--accent)', borderBottom: '2px solid var(--accent)', paddingBottom: '12px', cursor: 'pointer', marginBottom: '-14px' }}
+          >
+            Group Study Rooms
+          </span>
+        </div>
+        <RoomPanel />
+      </div>
+    );
+  }
 
   return (
-    <div className="bento-grid" style={{ width: '100%' }}>
-      {/* Left side: Main digital Timer */}
-      <div className="bento-card col-8" style={{ gridColumn: 'span 8', minHeight: '480px', alignItems: 'center', justifyContent: 'center' }}>
-        
-        {/* Status Indicator */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          color: getPhaseBadgeColor(),
-          border: `1px solid ${getPhaseBadgeColor()}`,
-          padding: '0.25rem 0.75rem',
-          borderRadius: '20px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          marginBottom: '1.5rem'
-        }}>
-          <span style={{ 
-            width: '6px', 
-            height: '6px', 
-            borderRadius: '50%', 
-            backgroundColor: getPhaseBadgeColor() 
-          }} className={timerState === 'RUNNING' ? 'timer-pulse' : ''} />
-          {timerState === 'IDLE' && `IDLE • Ready to ${currentPhase}`}
-          {timerState === 'RUNNING' && `${currentPhase} session running`}
-          {timerState === 'PAUSED' && 'session paused'}
-          {timerState === 'BREAK' && 'taking a break'}
-        </div>
-
-        {/* Digital Clock Display */}
-        <div 
-          className={timerState === 'RUNNING' ? 'timer-pulse' : ''}
-          style={{ 
-            fontSize: '6rem', 
-            fontWeight: 800, 
-            fontFamily: 'monospace', 
-            letterSpacing: '-0.02em', 
-            lineHeight: 1,
-            color: currentPhase === 'break' ? 'var(--warning)' : 'var(--text-primary)',
-            textShadow: '0 4px 12px rgba(0,0,0,0.05)'
-          }}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '400px', margin: '0 auto', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
+      
+      {/* Sub-header navigation toggles */}
+      <div style={{ display: 'flex', width: '100%', gap: '16px', borderBottom: '0.5px solid var(--border)', paddingBottom: '12px', marginBottom: '8px' }}>
+        <span 
+          style={{ fontSize: '12px', fontWeight: 500, color: 'var(--accent)', borderBottom: '2px solid var(--accent)', paddingBottom: '12px', cursor: 'pointer', marginBottom: '-14px' }}
         >
-          {formatTime(timeLeft)}
-        </div>
+          Solo Focus
+        </span>
+        <span 
+          onClick={() => setTimerMode('group')}
+          style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Group Study Rooms
+        </span>
+      </div>
 
-        {/* Selected subject context */}
-        {currentPhase === 'focus' && getSelectedSubject() && (
-          <div style={{ marginTop: '0.5rem', fontSize: '0.95rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
-            <span>{getSelectedSubject()?.emoji}</span>
-            <span>Focusing on {getSelectedSubject()?.name}</span>
-          </div>
-        )}
-
-        {currentPhase === 'break' && (
-          <div style={{ marginTop: '0.5rem', fontSize: '0.95rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
-            <span>☕</span>
-            <span>Refuel & Stretch Break</span>
-          </div>
-        )}
-
-        {/* Subjects & Settings Selector (Only shown in IDLE state) */}
-        {timerState === 'IDLE' && currentPhase === 'focus' && (
-          <div style={{ width: '100%', maxWidth: '420px', marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            
-            {/* Subject Select */}
-            <div>
-              <label className="stat-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Subject Focus</label>
-              {subjects.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  <AlertCircle size={16} />
-                  <span>No subjects created yet. Navigate to Dashboard to add one!</span>
-                </div>
-              ) : (
-                <select 
-                  className="form-control" 
-                  value={selectedSubjectId}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
-                  style={{ padding: '0.65rem', backgroundColor: 'var(--bg-primary)' }}
+      <div className="timer-screen">
+        <div className="timer-tile">
+          
+          {/* Subjects Pills Row */}
+          {timerState === 'IDLE' && (
+            <div className="chips" style={{ overflowX: 'auto', width: '100%', paddingBottom: '4px', whiteSpace: 'nowrap', display: 'flex', justifyContent: 'center' }}>
+              {subjects.map(s => (
+                <span
+                  key={s.id}
+                  onClick={() => setSelectedSubjectId(s.id)}
+                  className={`chip ${selectedSubjectId === s.id ? 'active' : ''}`}
                 >
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.emoji} {s.name}</option>
-                  ))}
-                </select>
+                  <span>{s.emoji}</span>
+                  <span>{s.name}</span>
+                </span>
+              ))}
+              <span
+                onClick={() => setIsAddingSubject(true)}
+                className="chip"
+                style={{ borderStyle: 'dashed' }}
+              >
+                <span>+ add</span>
+              </span>
+            </div>
+          )}
+
+          {/* Inline Add Subject Form */}
+          {timerState === 'IDLE' && isAddingSubject && (
+            <div style={{ 
+              display: 'flex', 
+              gap: '6px', 
+              alignItems: 'center', 
+              width: '100%', 
+              padding: '6px', 
+              backgroundColor: 'var(--bg-primary)', 
+              borderRadius: '8px',
+              border: '0.5px solid var(--border)',
+              marginTop: '-8px'
+            }}>
+              <input 
+                type="text" 
+                value={newSubjectEmoji} 
+                onChange={(e) => setNewSubjectEmoji(e.target.value)}
+                style={{ width: '24px', textAlign: 'center', border: '0.5px solid var(--border)', borderRadius: '4px', padding: '2px' }}
+                maxLength={2}
+              />
+              <input 
+                type="text" 
+                placeholder="Subject Name" 
+                value={newSubjectName} 
+                onChange={(e) => setNewSubjectName(e.target.value)}
+                style={{ flex: 1, border: '0.5px solid var(--border)', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
+              />
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSaveSubject} 
+                style={{ fontSize: '10px', padding: '2px 6px', height: '20px' }}
+              >
+                Save
+              </button>
+              <button onClick={() => setIsAddingSubject(false)} style={{ fontSize: '11px', cursor: 'pointer', color: 'var(--text-secondary)', background: 'none', border: 'none' }}>✕</button>
+            </div>
+          )}
+
+          {/* Selected Subject Context when running */}
+          {timerState !== 'IDLE' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {currentPhase === 'focus' ? (
+                <>
+                  <span>{getSelectedSubject()?.emoji || '📚'}</span>
+                  <span>{getSelectedSubject()?.name || 'Focusing'}</span>
+                </>
+              ) : (
+                <>
+                  <span>☕</span>
+                  <span>Break Time</span>
+                </>
               )}
             </div>
+          )}
 
-            {/* Quick Time Pills */}
-            <div>
-              <label className="stat-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Focus Duration</label>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {[1, 15, 25, 50].map((mins) => (
-                  <button
-                    key={mins}
-                    onClick={() => handleDurationPill(mins)}
-                    className={`btn ${focusDuration === mins && !customMinutes ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderRadius: '20px' }}
-                  >
-                    {mins === 1 ? '1 min (Test)' : `${mins} min`}
-                  </button>
-                ))}
-                
-                {/* Custom minutes inline input */}
-                <input
-                  type="number"
-                  placeholder="Custom mins"
-                  value={customMinutes}
-                  onChange={handleCustomMinutesChange}
-                  style={{ 
-                    width: '110px', 
-                    padding: '0.25rem 0.75rem', 
-                    borderRadius: '20px', 
-                    border: '1px solid var(--border)',
-                    backgroundColor: 'var(--bg-primary)',
-                    fontSize: '0.85rem',
-                    textAlign: 'center',
-                    outline: 'none'
-                  }}
+          {/* SVG Ring Timer (140px wrap) */}
+          <div className="ring-wrap">
+            <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
+              <circle 
+                cx="70" 
+                cy="70" 
+                r={radius} 
+                fill="none" 
+                stroke="rgba(255,255,255,0.06)" 
+                strokeWidth="5" 
+              />
+              {timerState !== 'IDLE' && (
+                <circle 
+                  cx="70" 
+                  cy="70" 
+                  r={radius} 
+                  fill="none" 
+                  stroke="var(--accent)" 
+                  strokeWidth="5" 
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  style={{ transition: 'stroke-dashoffset 0.3s ease' }}
                 />
-              </div>
+              )}
+            </svg>
+            <div className="ring-time">
+              <div className="ring-digits">{formatTime(timeLeft)}</div>
+              <div className="ring-phase">{currentPhase}</div>
             </div>
           </div>
-        )}
 
-        {/* Controls Layout */}
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {/* Control Triggers */}
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {timerState === 'IDLE' && (
+              <button className="start-btn" onClick={startTimer}>
+                Start focus
+              </button>
+            )}
+
+            {timerState === 'RUNNING' && (
+              <button className="start-btn" style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }} onClick={pauseTimer}>
+                Pause
+              </button>
+            )}
+
+            {timerState === 'PAUSED' && (
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <button className="start-btn" style={{ flex: 1 }} onClick={startTimer}>
+                  Resume
+                </button>
+                <button 
+                  className="btn btn-danger" 
+                  style={{ height: '36px', width: '36px', borderRadius: '8px', padding: 0 }} 
+                  onClick={resetTimer}
+                  title="Reset"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Preset Buttons (Only in IDLE) */}
           {timerState === 'IDLE' && (
-            <button className="btn btn-primary" onClick={startTimer} style={{ minWidth: '130px' }}>
-              <Play size={16} fill="white" />
-              <span>Start focus</span>
-            </button>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
+              {[15, 25, 50].map((mins) => (
+                <button
+                  key={mins}
+                  onClick={() => setFocusDuration(mins)}
+                  style={{
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    border: focusDuration === mins ? '0.5px solid var(--accent)' : '0.5px solid var(--border)',
+                    color: focusDuration === mins ? 'var(--accent)' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {mins}m
+                </button>
+              ))}
+              <div style={{ display: 'flex', alignItems: 'center', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '1px 6px', height: '18px' }}>
+                <input 
+                  type="number" 
+                  min="1" 
+                  max="180" 
+                  value={focusDuration} 
+                  onChange={(e) => setFocusDuration(Math.max(1, parseInt(e.target.value) || 25))}
+                  style={{ width: '22px', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', padding: 0, color: 'var(--text-primary)' }}
+                />
+                <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>m</span>
+              </div>
+            </div>
           )}
 
-          {timerState === 'RUNNING' && (
-            <>
-              <button className="btn btn-secondary" onClick={pauseTimer} style={{ minWidth: '110px' }}>
-                <Pause size={16} />
-                <span>Pause</span>
-              </button>
-              <button className="btn btn-danger" onClick={resetTimer}>
-                <RotateCcw size={16} />
-                <span>Reset</span>
-              </button>
-            </>
-          )}
+          {/* Session Logs List */}
+          <div className="session-log">
+            {recentSessions.map((s, idx) => (
+              <div className="log-row" key={s.id || idx}>
+                <span>{s.subject?.name || 'Focus block'}</span>
+                <span>{formatTime(s.duration_seconds)}</span>
+              </div>
+            ))}
+            {recentSessions.length === 0 && (
+              <div style={{ fontSize: '10px', textAlign: 'center', color: 'var(--text-secondary)', opacity: 0.5, padding: '4px 0' }}>
+                No sessions completed yet
+              </div>
+            )}
+          </div>
 
-          {timerState === 'PAUSED' && (
-            <>
-              <button className="btn btn-primary" onClick={startTimer} style={{ minWidth: '110px' }}>
-                <Play size={16} fill="white" />
-                <span>Resume</span>
-              </button>
-              <button className="btn btn-secondary" onClick={skipTimer}>
-                <SkipForward size={16} />
-                <span>Skip</span>
-              </button>
-              <button className="btn btn-danger" onClick={resetTimer}>
-                <RotateCcw size={16} />
-                <span>Reset</span>
-              </button>
-            </>
-          )}
-
-          {timerState === 'BREAK' && (
-            <button className="btn btn-secondary" onClick={skipTimer} style={{ minWidth: '130px' }}>
-              <SkipForward size={16} />
-              <span>Skip break</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Right side: Realtime Studies Sidebar */}
-      <FriendsSidebar />
     </div>
   );
 };
